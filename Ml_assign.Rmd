@@ -106,7 +106,7 @@ answer
 
 ## Appendix
 
-```{r}
+```{r} 
 rfModelTree <- rpart(classe ~., data = training, method = "class")
 prp(rfModelTree)
 ```
