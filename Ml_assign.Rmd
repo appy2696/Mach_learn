@@ -1,0 +1,126 @@
+---
+title: "machine learning assignment"
+author: "Apoorv"
+date: "18/09/2020"
+output: 
+  html_document: 
+    keep_md: true 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
+```
+
+## load the data and the packages into R:
+```{r librariesload, message=FALSE}
+library(caret)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+library(rattle)
+```
+
+## Getting and cleaning data 
+```{r fileread, message=FALSE}
+if (!file.exists("pml-training.csv" )){
+        fileUrl = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+        download.file(fileUrl, destfile="./pml-training.csv")
+}
+
+if (!file.exists("pml-testing.csv" )){
+        fileUrl = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+        download.file(fileUrl, destfile="./pml-testing.csv")
+}
+```
+
+```{r}
+# Read in the data:
+trainingData <- read.csv("pml-training.csv", header = TRUE, sep = ",", na.strings = c("NA", ""))
+testingData <- read.csv("pml-testing.csv", header = TRUE, sep = ",", na.strings = c("NA", ""))
+```
+
+```{r}
+# Remove variables with near zero variance
+training<-trainingData[,colSums(is.na(trainingData)) == 0]
+testing <-testingData[,colSums(is.na(testingData)) == 0]
+
+# Remove columns that are not predictors, which are the the seven first columns
+training   <-training[,-c(1:7)]
+testing <-testing[,-c(1:7)]
+```
+# The data after cleaning
+
+```{r}
+dim(training)
+```
+
+## Cross-validation
+#### In order to get out-of-sample errors, split the training data in training (75%) and testing (25%) data) subsets:
+```{r}
+set.seed(1234)
+inTrain <- createDataPartition(trainingData$classe, p = 0.75, list = FALSE)
+training <- training[inTrain,]
+testing <- training[-inTrain,]
+```
+We will run the set on 5-fold cross validation. In 5-fold cross-validation, the original sample is randomly partitioned into 5 equal sized subsamples. Of the 5 subsamples, a single subsample is retained as the validation data for testing the model, and the remaining 4 subsamples are used as training data. The cross-validation process is then repeated 5 times (the folds), with each of the 5 subsamples used exactly once as the validation data. The 5 results from the folds can then be averaged (or otherwise combined) to produce a single estimation.
+
+```{r}
+set.seed(1234)
+rfModel <- train(classe ~., method = "rf", data = training, 
+                 trControl = trainControl(method = "cv", number= 5), 
+                 prox = TRUE, allowParallel = TRUE)
+
+rfModel
+```
+## Check performance of model 
+The model will be tested on the validation data (partition of the training data) and a confusion matrix will be used to check the accuracy of the prediction on the validation data:
+
+```{r}
+predictTesting <- predict(rfModel, testing)
+confusionMatrix(factor(testing$classe), factor(predictTesting))
+```
+
+```{r}
+#Accuracy: 
+accuracy <- confusionMatrix(factor(testing$classe), factor(predictTesting))$overall[1]
+
+#Out of sample error:
+OOSError <- 1 - confusionMatrix(factor(testing$classe), factor(predictTesting))$overall[1]
+
+cat("Accuracy: ", accuracy)
+
+cat("Out of sample error: ", OOSError)
+
+```
+
+The accuracy from the prediction model is `r accuracy` and the out of sample error is `r OOSError`%. As this is a very accurate result, we will run the Random Forest model on the test data
+
+## Run the model on the test data 
+The Random Forest model is now applied to the test data to predict the outcome:
+
+```{r}
+answer <- predict(rfModel, testingData)
+
+answer
+```
+
+## Appendix
+
+```{r}
+rfModelTree <- rpart(classe ~., data = training, method = "class")
+prp(rfModelTree)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
